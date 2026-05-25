@@ -500,10 +500,11 @@ class TestBacktesterRun:
         result = _make_backtester(s).run()
         assert result.strategy_name == "_TrackingStrategy"
 
-    def test_result_has_empty_equity_curve(self) -> None:
+    def test_result_has_equity_curve_series(self) -> None:
         result = _make_backtester(EventDrivenStrategy()).run()
         assert isinstance(result.equity_curve, pd.Series)
-        assert result.equity_curve.empty
+        # Phase 4: equity is sampled each bar, so a 5-bar default feed → 5 entries.
+        assert len(result.equity_curve) == 5
 
     def test_result_has_empty_trades(self) -> None:
         result = _make_backtester(EventDrivenStrategy()).run()
@@ -511,13 +512,17 @@ class TestBacktesterRun:
         assert result.trades.empty
 
     def test_pending_orders_accumulated_from_strategy(self) -> None:
-        """Orders enqueued by the strategy must be stored by the Backtester."""
+        """Orders enqueued by the strategy must reach the OrderManager.
+
+        The stub _Execution always returns None (no fills), so all 3 orders
+        remain SUBMITTED in the internal OrderManager after the run.
+        """
         bars = _make_bars(3)
         s = _TrackingStrategy()  # submits 1 buy per bar
         bt = _make_backtester(s, bars)
         bt.run()
-        # 3 bars → 3 orders pending (execution is Phase 4)
-        assert len(bt._pending_orders) == 3
+        # 3 bars → 3 orders accumulated and still pending (stub execution fills nothing)
+        assert len(bt._order_manager.get_pending()) == 3
 
     def test_current_bar_set_before_on_bar(self) -> None:
         seen_bars: list[Optional[Bar]] = []
@@ -584,18 +589,50 @@ class TestBacktesterRun:
 
 
 class TestBacktesterDebugMode:
-    def test_debug_mode_logs_bars(self) -> None:
+    """Phase 5: debug output goes through DebugLogger → backtester.debug.* namespace."""
+
+    def test_debug_mode_emits_records(self) -> None:
+        import json
+        import logging
+
         bars = _make_bars(3)
         bt = _make_backtester(EventDrivenStrategy(), bars, debug=True)
+        debug_log = logging.getLogger("backtester.debug.EventDrivenStrategy")
 
-        with patch("backtester.core.backtester.logger") as mock_log:
+        class _Cap(logging.Handler):
+            def __init__(self): super().__init__(logging.DEBUG); self.records = []
+            def emit(self, r): self.records.append(r)
+
+        cap = _Cap()
+        debug_log.addHandler(cap)
+        debug_log.setLevel(logging.DEBUG)
+        try:
             bt.run()
-            # At minimum there should be several debug calls
-            assert mock_log.debug.call_count >= 3  # start + 3 bars + finish
+        finally:
+            debug_log.removeHandler(cap)
 
-    def test_debug_false_does_not_log(self) -> None:
+        # Should have at minimum: on_start phase + 3 bar events + on_end phase
+        assert len(cap.records) >= 5
+        events = [json.loads(r.getMessage())["event"] for r in cap.records]
+        assert "bar" in events
+        assert "phase" in events
+
+    def test_debug_false_does_not_emit_debug_records(self) -> None:
+        import logging
+
         bt = _make_backtester(EventDrivenStrategy(), debug=False)
+        debug_log = logging.getLogger("backtester.debug.EventDrivenStrategy")
 
-        with patch("backtester.core.backtester.logger") as mock_log:
+        class _Cap(logging.Handler):
+            def __init__(self): super().__init__(logging.DEBUG); self.records = []
+            def emit(self, r): self.records.append(r)
+
+        cap = _Cap()
+        debug_log.addHandler(cap)
+        debug_log.setLevel(logging.DEBUG)
+        try:
             bt.run()
-            mock_log.debug.assert_not_called()
+        finally:
+            debug_log.removeHandler(cap)
+
+        assert cap.records == []
