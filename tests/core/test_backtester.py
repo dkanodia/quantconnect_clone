@@ -194,8 +194,13 @@ class TestBasicRun:
         assert result.metrics["total_return"] == pytest.approx(0.0)
 
     def test_metrics_dict_has_required_keys(self) -> None:
+        # Phase 6: compute_all() replaces the Phase 4 stub; verify the full
+        # analytics key set is present, including the legacy keys.
         result = _make_backtester([_bar(2)], PassiveStrategy()).run()
-        for key in ("total_return", "final_equity", "num_trades"):
+        for key in (
+            "total_return", "final_equity", "num_trades",
+            "sharpe_ratio", "max_drawdown", "win_rate",
+        ):
             assert key in result.metrics
 
 

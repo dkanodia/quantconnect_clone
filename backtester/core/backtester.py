@@ -46,6 +46,7 @@ from typing import Any, Optional
 
 import pandas as pd
 
+from backtester.analytics.metrics import compute_all
 from backtester.core.debug_logger import DebugLogger
 from backtester.core.event_bus import SimpleEventBus
 from backtester.core.order_manager import OrderManager
@@ -286,7 +287,14 @@ class Backtester:
                 strategy_name=strategy_name,
             ) from exc
 
-        return self._build_result(strategy, portfolio, order_manager)
+        result = self._build_result(strategy, portfolio, order_manager)
+
+        # Phase 6: replace placeholder metrics with the full analytics set,
+        # then invoke the reporter (store return value — callers may inspect it).
+        result.metrics = compute_all(result)
+        self._last_report = self._reporter.report(result)
+
+        return result
 
     # ------------------------------------------------------------------
     # Private helpers
@@ -425,29 +433,20 @@ class Backtester:
         portfolio: SimplePortfolio,
         order_manager: OrderManager,
     ) -> BacktestResult:
-        """Compute and return the final BacktestResult."""
+        """
+        Assemble the raw ``BacktestResult`` from portfolio state.
+
+        ``metrics`` is left empty here; ``run()`` replaces it with the full
+        output of :func:`~backtester.analytics.metrics.compute_all` after
+        this method returns.
+        """
         equity_curve = portfolio.get_equity_curve()
         trades = portfolio.get_trades()
-
-        final_equity = (
-            float(equity_curve.iloc[-1]) if len(equity_curve) > 0 else self._initial_cash
-        )
-        total_return = (
-            (final_equity - self._initial_cash) / self._initial_cash
-            if self._initial_cash > 0
-            else 0.0
-        )
-
-        metrics: dict[str, Any] = {
-            "total_return": total_return,
-            "final_equity": final_equity,
-            "num_trades": len(trades),
-        }
 
         return BacktestResult(
             equity_curve=equity_curve,
             trades=trades,
-            metrics=metrics,
+            metrics={},          # filled by compute_all() in run()
             params=strategy.params,
             strategy_name=type(strategy).__name__,
         )
