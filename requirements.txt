@@ -1,0 +1,32 @@
+# ============================================================
+# Engine — backtesting core, data, and analytics
+# ============================================================
+polars>=1.0.0
+pandas>=2.0.0
+numpy>=1.26.0
+numba>=0.59.0
+optuna>=3.6.0
+yfinance>=0.2.40
+pyarrow>=15.0.0
+plotly>=5.20.0
+quantstats>=0.0.62
+
+# ============================================================
+# UI — Streamlit app, database, auth
+# ============================================================
+streamlit>=1.35.0
+# Ace editor component for VSCode-like Python code editing in the Strategy Library
+streamlit-ace>=0.1.1
+sqlalchemy>=2.0.0
+apscheduler>=3.10.0
+pydantic>=2.0.0
+passlib>=1.7.4
+# bcrypt pinned below 4.0 for passlib compatibility:
+# passlib's CryptContext uses bcrypt's internal API that changed in 4.0
+bcrypt>=3.2.0,<4.0.0
+
+# ============================================================
+# Dev / test
+# ============================================================
+pytest>=8.0.0
+pytest-mock>=3.14.0

@@ -156,7 +156,7 @@ def run_card(
 
     # ── Tag pills HTML ─────────────────────────────────────────────────────
     tag_html = " ".join(
-        f'<span style="background:#f0f0f0; color:#555; padding:1px 6px; '
+        f'<span style="background:rgba(128,128,128,0.15); padding:1px 6px; '
         f'border-radius:4px; font-size:0.75rem;">{t}</span>'
         for t in (run.tags or [])
     )
@@ -165,10 +165,10 @@ def run_card(
     avatar_html = (
         f'<span style="display:inline-flex; align-items:center; '
         f'justify-content:center; width:22px; height:22px; '
-        f'border-radius:50%; background:#1a1a1a; color:white; '
+        f'border-radius:50%; background:#4f6ef7; color:white; '
         f'font-size:0.6rem; font-weight:600; margin-right:5px; '
         f'vertical-align:middle;">{owner_initials}</span>'
-        f'<span style="font-size:0.85rem; color:#444; '
+        f'<span style="font-size:0.85rem; opacity:0.75; '
         f'vertical-align:middle;">{owner_name}</span>'
     )
 
@@ -206,7 +206,7 @@ def run_card(
             )
         with bot_right:
             st.markdown(
-                f'<span style="color:#888; font-size:0.8rem; '
+                f'<span style="opacity:0.5; font-size:0.8rem; '
                 f'float:right;">{time_ago(run.created_at)}</span>',
                 unsafe_allow_html=True,
             )

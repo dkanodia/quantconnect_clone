@@ -34,9 +34,9 @@ submit success
     symbols are uppercased before storing
     tags are parsed and stripped from comma-separated string
     session_state["selected_run_id"] set to new run's id
-    session_state["page"] set to "run_detail"
+    session_state["page"] set to "run_live"
     st.rerun called after successful submission
-    st.success shown with run id
+    no st.success toast (navigation is immediate)
 """
 
 from __future__ import annotations
@@ -546,21 +546,20 @@ class TestSubmitSuccess:
             == mock_new_run["created_run"].id
         )
 
-    def test_session_state_page_set_to_run_detail(
+    def test_session_state_page_set_to_run_live(
         self, mock_new_run: dict
     ) -> None:
         self._submit(mock_new_run)
-        assert mock_new_run["state"]["page"] == "run_detail"
+        assert mock_new_run["state"]["page"] == "run_live"
 
     def test_rerun_called_on_success(self, mock_new_run: dict) -> None:
         self._submit(mock_new_run)
         mock_new_run["st"]["rerun"].assert_called_once()
 
-    def test_success_message_shown(self, mock_new_run: dict) -> None:
+    def test_no_success_toast_shown(self, mock_new_run: dict) -> None:
+        # Navigation to run_live happens immediately; no st.success call needed
         self._submit(mock_new_run)
-        mock_new_run["st"]["success"].assert_called_once()
-        msg = str(mock_new_run["st"]["success"].call_args[0][0])
-        assert mock_new_run["created_run"].id in msg
+        mock_new_run["st"]["success"].assert_not_called()
 
     def test_no_submit_no_create_run(self, mock_new_run: dict) -> None:
         # button returns False (default in fixture)

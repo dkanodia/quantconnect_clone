@@ -50,33 +50,79 @@ from ui.pages.login import login_page
 from ui.pages.new_run import new_run_page
 from ui.pages.notifications import notifications_page
 from ui.pages.run_detail import run_detail_page
+from ui.pages.run_live import run_live_page
 from ui.pages.run_history import run_history_page
 from ui.pages.strategy_library import strategy_library_page
 
 # ---------------------------------------------------------------------------
-# Global CSS — light fintech aesthetic, injected once per load
+# Global CSS — theme-aware; works in both light and dark Streamlit modes
 # ---------------------------------------------------------------------------
 
 _GLOBAL_CSS: str = """
 <style>
-body { font-family: 'Inter', sans-serif; }
+/* ── Typography ────────────────────────────────────────────────────────── */
+html, body, [class*="css"] {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+                 sans-serif;
+}
+
+/* ── Layout ─────────────────────────────────────────────────────────────── */
+/* Tighten the default Streamlit top padding */
+.block-container { padding-top: 1.75rem !important; }
+
+/* ── Sidebar ─────────────────────────────────────────────────────────── */
 [data-testid="stSidebar"] {
-    border-right: 0.5px solid #e0e0e0;
-    background: #fafafa;
+    border-right: 1px solid rgba(128, 128, 128, 0.15);
 }
-[data-testid="stAppViewContainer"] {
-    background: #ffffff;
-}
+
+/* ── Metric cards ────────────────────────────────────────────────────── */
 .metric-card {
-    border: 0.5px solid #e0e0e0;
-    border-radius: 6px;
+    border: 1px solid rgba(128, 128, 128, 0.2);
+    border-radius: 8px;
     padding: 1rem;
-    background: #ffffff;
 }
-.positive { color: #27500A; background: #EAF3DE; padding: 2px 6px; border-radius: 4px; }
-.negative { color: #791F1F; background: #FCEBEB; padding: 2px 6px; border-radius: 4px; }
-.badge-wfo { color: #0C447C; background: #E6F1FB; padding: 2px 6px; border-radius: 4px; }
-.badge-pending { color: #7A4F00; background: #FFF3CD; padding: 2px 6px; border-radius: 4px; }
+
+/* ── st.metric label — slightly smaller, muted */
+[data-testid="stMetricLabel"] {
+    font-size: 0.78rem !important;
+    font-weight: 500 !important;
+    opacity: 0.7;
+}
+[data-testid="stMetricValue"] {
+    font-size: 1.35rem !important;
+    font-weight: 600 !important;
+}
+
+/* ── Semantic colour badges ──────────────────────────────────────────── */
+/* All use rgba fills so they work in both light and dark themes */
+.positive   { color: #3a7d1e; background: rgba(58,125,30,0.12);   padding: 2px 8px; border-radius: 4px; font-size: 0.82rem; font-weight: 500; }
+.negative   { color: #c0392b; background: rgba(192,57,43,0.12);   padding: 2px 8px; border-radius: 4px; font-size: 0.82rem; font-weight: 500; }
+.badge-wfo  { color: #1a69c4; background: rgba(26,105,196,0.12);  padding: 2px 8px; border-radius: 4px; font-size: 0.82rem; font-weight: 500; }
+.badge-pending { color: #b07d00; background: rgba(176,125,0,0.12); padding: 2px 8px; border-radius: 4px; font-size: 0.82rem; font-weight: 500; }
+
+/* ── st.expander — tighter chrome ───────────────────────────────────── */
+[data-testid="stExpander"] summary {
+    font-size: 0.9rem;
+}
+
+/* ── st.code — consistent border ────────────────────────────────────── */
+[data-testid="stCode"] {
+    border-radius: 6px !important;
+}
+
+/* ── Scrollbar — thinner, subtle ────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.3); border-radius: 4px; }
+</style>
+"""
+
+# CSS injected only when the user is NOT authenticated — hides the sidebar
+# chrome completely on the login page.
+_HIDE_SIDEBAR_CSS: str = """
+<style>
+section[data-testid="stSidebar"],
+[data-testid="collapsedControl"] { display: none !important; }
 </style>
 """
 
@@ -127,6 +173,7 @@ PAGES: dict[str, Callable[[], None]] = {
     "new_run":          new_run_page,
     "run_history":      run_history_page,
     "run_detail":       run_detail_page,
+    "run_live":         run_live_page,
     "compare":          compare_page,
     "strategy_library": strategy_library_page,
     "notifications":    notifications_page,
@@ -174,7 +221,7 @@ def main() -> None:
         page_title="Backtester",
         page_icon="⚡",
         layout="wide",
-        initial_sidebar_state="expanded",
+        initial_sidebar_state="auto",  # expanded on desktop, collapsed on mobile
     )
 
     # ── 2. Global CSS ──────────────────────────────────────────────────────
@@ -191,6 +238,9 @@ def main() -> None:
 
     # ── 5. Authentication gate ─────────────────────────────────────────────
     if not is_authenticated():
+        # Hide sidebar chrome entirely on the login page — there are no nav
+        # items to show and the empty panel looks broken.
+        st.markdown(_HIDE_SIDEBAR_CSS, unsafe_allow_html=True)
         login_page()
         st.stop()
         return

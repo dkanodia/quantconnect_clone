@@ -189,7 +189,6 @@ def new_run_page() -> None:
         )
         run_id = run.id
 
-    st.success(f"✅ Backtest submitted! Run ID: {run_id}")
     st.session_state["selected_run_id"] = run_id
-    st.session_state["page"] = "run_detail"
+    st.session_state["page"] = "run_live"
     st.rerun()

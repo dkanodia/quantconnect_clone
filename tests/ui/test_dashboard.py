@@ -145,14 +145,16 @@ def mock_dashboard(monkeypatch):
         return [_make_col() for _ in range(n)]
 
     st_mocks = {
-        "title": MagicMock(),
-        "caption": MagicMock(),
-        "subheader": MagicMock(),
-        "info": MagicMock(),
-        "markdown": MagicMock(),
-        "metric": MagicMock(),
-        "columns": MagicMock(side_effect=_cols_side_effect),
-        "rerun": MagicMock(),
+        "title":        MagicMock(),
+        "caption":      MagicMock(),
+        "subheader":    MagicMock(),
+        "info":         MagicMock(),
+        "markdown":     MagicMock(),
+        "metric":       MagicMock(),
+        "columns":      MagicMock(side_effect=_cols_side_effect),
+        "rerun":        MagicMock(),
+        "plotly_chart": MagicMock(),
+        "dataframe":    MagicMock(),
     }
     for name, mock in st_mocks.items():
         monkeypatch.setattr(f"ui.pages.dashboard.st.{name}", mock)
@@ -160,13 +162,13 @@ def mock_dashboard(monkeypatch):
     monkeypatch.setattr("ui.pages.dashboard.st.session_state", state)
 
     return {
-        "state": state,
-        "featured": mock_featured,
-        "visible": mock_visible,
+        "state":        state,
+        "featured":     mock_featured,
+        "visible":      mock_visible,
         "list_featured": mock_list_featured,
         "list_visible": mock_list_visible,
-        "run_card": mock_run_card,
-        "st": st_mocks,
+        "run_card":     mock_run_card,
+        "st":           st_mocks,
     }
 
 
@@ -414,3 +416,193 @@ class TestDashboardNavigation:
             pass
 
         assert mock_dashboard["state"]["page"] == "run_detail"
+
+
+# ===========================================================================
+# Tests — extended KPI strip (row 2)
+# ===========================================================================
+
+
+class TestExtendedKPIStrip:
+    def test_two_rows_of_four_metrics(self, mock_dashboard: dict) -> None:
+        """Both metric rows call st.columns(4); expect at least two such calls."""
+        dashboard_page()
+        calls_with_4 = [
+            c for c in mock_dashboard["st"]["columns"].call_args_list
+            if c[0] and c[0][0] == 4
+        ]
+        assert len(calls_with_4) >= 2
+
+    def test_best_cagr_shown_in_second_row(self, mock_dashboard: dict) -> None:
+        run = _make_run(
+            visibility="TEAM",
+            result={"metrics": {"sharpe_ratio": 1.0, "cagr": 0.35,
+                                "max_drawdown": -0.08, "win_rate": 0.6}},
+            status="DONE",
+        )
+        mock_dashboard["visible"].append(run)
+        dashboard_page()
+        metric_values = [
+            str(c[0][1] if len(c[0]) > 1 else c[1].get("value", ""))
+            for c in mock_dashboard["st"]["metric"].call_args_list
+        ]
+        assert any("35.0%" in v for v in metric_values)
+
+    def test_avg_win_rate_computed_across_runs(
+        self, mock_dashboard: dict
+    ) -> None:
+        r1 = _make_run(
+            visibility="TEAM",
+            result={"metrics": {"sharpe_ratio": 1.0, "cagr": 0.1,
+                                "max_drawdown": -0.05, "win_rate": 0.60}},
+            status="DONE",
+        )
+        r2 = _make_run(
+            visibility="TEAM",
+            result={"metrics": {"sharpe_ratio": 1.2, "cagr": 0.2,
+                                "max_drawdown": -0.10, "win_rate": 0.40}},
+            status="DONE",
+        )
+        mock_dashboard["visible"].extend([r1, r2])
+        dashboard_page()
+        metric_values = [
+            str(c[0][1] if len(c[0]) > 1 else c[1].get("value", ""))
+            for c in mock_dashboard["st"]["metric"].call_args_list
+        ]
+        # avg win rate = (0.60 + 0.40) / 2 = 0.50 → "50.0%"
+        assert any("50.0%" in v for v in metric_values)
+
+    def test_completed_count_excludes_running(
+        self, mock_dashboard: dict
+    ) -> None:
+        done   = _make_run(visibility="TEAM", status="DONE")
+        running = _make_run(visibility="TEAM", status="RUNNING")
+        mock_dashboard["visible"].extend([done, running])
+        dashboard_page()
+        metric_values = [
+            c[0][1] if len(c[0]) > 1 else c[1].get("value")
+            for c in mock_dashboard["st"]["metric"].call_args_list
+        ]
+        # completed = 1 (only the DONE run)
+        assert 1 in metric_values
+
+
+# ===========================================================================
+# Tests — charts section
+# ===========================================================================
+
+
+class TestChartsSection:
+    def test_activity_chart_always_rendered(
+        self, mock_dashboard: dict
+    ) -> None:
+        """Team Activity bar chart must be rendered on every dashboard load."""
+        dashboard_page()
+        mock_dashboard["st"]["plotly_chart"].assert_called()
+
+    def test_scatter_not_rendered_with_fewer_than_two_results(
+        self, mock_dashboard: dict
+    ) -> None:
+        """Scatter requires >= 2 runs with results; with 0 or 1, show caption."""
+        # No runs → no scatter → plotly_chart called once (activity only)
+        dashboard_page()
+        assert mock_dashboard["st"]["plotly_chart"].call_count == 1
+
+    def test_scatter_rendered_with_two_or_more_results(
+        self, mock_dashboard: dict
+    ) -> None:
+        for _ in range(2):
+            mock_dashboard["visible"].append(
+                _make_run(
+                    visibility="TEAM",
+                    result={"metrics": {"sharpe_ratio": 1.0, "cagr": 0.15,
+                                        "max_drawdown": -0.08, "win_rate": 0.55}},
+                    status="DONE",
+                )
+            )
+        dashboard_page()
+        # Both scatter AND activity chart → plotly_chart called twice
+        assert mock_dashboard["st"]["plotly_chart"].call_count == 2
+
+    def test_insufficient_data_caption_shown_when_one_result(
+        self, mock_dashboard: dict
+    ) -> None:
+        mock_dashboard["visible"].append(
+            _make_run(
+                visibility="TEAM",
+                result={"metrics": {"sharpe_ratio": 1.0, "cagr": 0.1,
+                                    "max_drawdown": -0.05, "win_rate": 0.5}},
+                status="DONE",
+            )
+        )
+        dashboard_page()
+        caption_texts = [
+            str(c[0][0]) for c in mock_dashboard["st"]["caption"].call_args_list
+        ]
+        assert any("2" in t and "strateg" in t.lower() for t in caption_texts)
+
+
+# ===========================================================================
+# Tests — leaderboard
+# ===========================================================================
+
+
+class TestLeaderboard:
+    def test_leaderboard_info_shown_with_no_results(
+        self, mock_dashboard: dict
+    ) -> None:
+        dashboard_page()
+        info_texts = [
+            str(c[0][0]) for c in mock_dashboard["st"]["info"].call_args_list
+        ]
+        assert any("leaderboard" in t.lower() for t in info_texts)
+
+    def test_leaderboard_dataframe_rendered_when_results_exist(
+        self, mock_dashboard: dict
+    ) -> None:
+        mock_dashboard["visible"].append(
+            _make_run(
+                visibility="TEAM",
+                result={"metrics": {"sharpe_ratio": 1.5, "cagr": 0.20,
+                                    "max_drawdown": -0.10, "win_rate": 0.55}},
+                status="DONE",
+            )
+        )
+        dashboard_page()
+        mock_dashboard["st"]["dataframe"].assert_called_once()
+
+    def test_leaderboard_capped_at_ten_rows(
+        self, mock_dashboard: dict
+    ) -> None:
+        for i in range(15):
+            mock_dashboard["visible"].append(
+                _make_run(
+                    visibility="TEAM",
+                    result={"metrics": {"sharpe_ratio": float(i) * 0.1,
+                                        "cagr": 0.05, "max_drawdown": -0.05,
+                                        "win_rate": 0.5}},
+                    status="DONE",
+                )
+            )
+        dashboard_page()
+        call_args = mock_dashboard["st"]["dataframe"].call_args
+        df = call_args[0][0]
+        assert len(df) <= 10
+
+    def test_leaderboard_sorted_by_sharpe_descending(
+        self, mock_dashboard: dict
+    ) -> None:
+        for sharpe in [0.5, 2.0, 1.2]:
+            mock_dashboard["visible"].append(
+                _make_run(
+                    visibility="TEAM",
+                    result={"metrics": {"sharpe_ratio": sharpe,
+                                        "cagr": 0.1, "max_drawdown": -0.05,
+                                        "win_rate": 0.5}},
+                    status="DONE",
+                )
+            )
+        dashboard_page()
+        df = mock_dashboard["st"]["dataframe"].call_args[0][0]
+        # First row should have the highest Sharpe ("2.00")
+        assert df.iloc[0]["Sharpe"] == "2.00"

@@ -69,6 +69,7 @@ NAV_ITEMS: list[dict] = [
 
 _SIDEBAR_CSS = """
 <style>
+/* Nav buttons — transparent by default, subtle highlight when active */
 .nav-item button {
     width: 100%;
     text-align: left;
@@ -78,10 +79,12 @@ _SIDEBAR_CSS = """
     border-radius: 6px;
     font-size: 0.9rem;
 }
+/* Active nav: rgba so it adapts to both light and dark themes */
 .nav-active button {
-    background: #f0f0f0;
+    background: rgba(128, 128, 128, 0.15);
     font-weight: 600;
 }
+/* Avatar circle — intentionally always dark (brand colour) */
 .avatar-circle {
     display: inline-flex;
     align-items: center;
@@ -89,10 +92,11 @@ _SIDEBAR_CSS = """
     width: 36px;
     height: 36px;
     border-radius: 50%;
-    background: #1a1a1a;
+    background: #4f6ef7;
     color: white;
     font-size: 0.8rem;
     font-weight: 600;
+    flex-shrink: 0;
 }
 </style>
 """
@@ -138,7 +142,7 @@ def sidebar() -> None:
     st.sidebar.markdown("## ⚡ Backtester")
     st.sidebar.markdown(
         "<hr style='margin: 0.25rem 0 0.75rem; border: none; "
-        "border-top: 0.5px solid #e0e0e0;' />",
+        "border-top: 1px solid rgba(128,128,128,0.2);' />",
         unsafe_allow_html=True,
     )
 
@@ -185,9 +189,11 @@ def sidebar() -> None:
         f'<div style="display:flex; align-items:center; gap:0.75rem; '
         f'padding:0.5rem 0;">'
         f'<div class="avatar-circle">{user["avatar_initials"]}</div>'
-        f'<div>'
-        f'<div style="font-weight:600; font-size:0.9rem;">{user["name"]}</div>'
-        f'<div style="color:#666; font-size:0.8rem;">{user["role"]}</div>'
+        f'<div style="min-width:0;">'
+        f'<div style="font-weight:600; font-size:0.9rem; '
+        f'white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">'
+        f'{user["name"]}</div>'
+        f'<div style="opacity:0.6; font-size:0.78rem;">{user["role"]}</div>'
         f'</div>'
         f'</div>'
     )

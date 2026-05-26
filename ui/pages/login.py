@@ -22,18 +22,8 @@ from ui.db import get_db, get_user_by_email
 
 _LOGIN_CSS = """
 <style>
-.login-card {
-    max-width: 420px;
-    margin: 80px auto;
-    padding: 2rem;
-    border: 0.5px solid #e0e0e0;
-    border-radius: 8px;
-    background: #ffffff;
-}
-button[kind="primary"] {
-    background-color: #1a1a1a;
-    color: white;
-}
+/* Login page — no hardcoded background so dark mode works correctly */
+.login-spacer { height: 6vh; }
 </style>
 """
 
@@ -69,20 +59,30 @@ def login_page() -> None:
     On failed login, shows ``st.error("Invalid email or password")``.
     """
     st.markdown(_LOGIN_CSS, unsafe_allow_html=True)
+    # Vertical breathing room above the card
+    st.markdown('<div class="login-spacer"></div>', unsafe_allow_html=True)
 
     _, col, _ = st.columns([1, 2, 1])
 
     with col:
-        st.title("⚡ Backtester")
-        st.caption("Quantitative Research Platform")
+        with st.container(border=True):
+            st.markdown("## ⚡ Backtester")
+            st.caption("Quantitative Research Platform")
+            st.divider()
 
-        email: str = st.text_input("Email")
-        password: str = st.text_input("Password", type="password")
+            email: str = st.text_input(
+                "Email", placeholder="you@company.com", label_visibility="visible"
+            )
+            password: str = st.text_input(
+                "Password", type="password", placeholder="••••••••",
+                label_visibility="visible"
+            )
+            st.markdown("")  # small spacer
 
-        if st.button("Sign In", use_container_width=True):
-            _handle_sign_in(email, password)
+            if st.button("Sign In", use_container_width=True, type="primary"):
+                _handle_sign_in(email, password)
 
-        st.caption("Contact your admin to create an account")
+            st.caption("Contact your admin to create an account")
 
 
 # ---------------------------------------------------------------------------

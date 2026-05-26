@@ -96,9 +96,9 @@ def equity_chart(
             y=ys,
             mode="lines",
             name=title,
-            line=dict(color="#1a1a1a", width=2),
+            line=dict(color="#4f6ef7", width=2),
             fill="tozeroy",
-            fillcolor="rgba(26,26,26,0.05)",
+            fillcolor="rgba(79,110,247,0.08)",
             hovertemplate="%{x}<br>$%{y:,.0f}<extra></extra>",
         )
     )
@@ -108,11 +108,11 @@ def equity_chart(
         fig.add_hline(
             y=ys[0],
             line_dash="dash",
-            line_color="#cccccc",
+            line_color="rgba(128,128,128,0.4)",
             line_width=1,
             annotation_text=f"Initial: ${ys[0]:,.0f}",
             annotation_position="top right",
-            annotation_font_color="#aaaaaa",
+            annotation_font_color="rgba(128,128,128,0.7)",
         )
 
     # ── Compare curves ─────────────────────────────────────────────────────
@@ -131,23 +131,25 @@ def equity_chart(
         )
 
     # ── Layout ─────────────────────────────────────────────────────────────
+    # Use transparent backgrounds so the chart adapts to Streamlit's theme
+    # (light or dark) without manual colour overrides.
     fig.update_layout(
-        title=dict(text=title, font=dict(size=14, color="#1a1a1a")),
+        title=dict(text=title, font=dict(size=14)),
         height=height,
-        paper_bgcolor="white",
-        plot_bgcolor="white",
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
         margin=dict(l=0, r=0, t=40, b=0),
         hovermode="x unified",
         showlegend=bool(compare_curves),
         xaxis=dict(
-            gridcolor="#f0f0f0",
+            gridcolor="rgba(128,128,128,0.15)",
             showgrid=True,
             zeroline=False,
         ),
         yaxis=dict(
             tickprefix="$",
             tickformat=",.0f",
-            gridcolor="#f0f0f0",
+            gridcolor="rgba(128,128,128,0.15)",
             showgrid=True,
             zeroline=False,
         ),
